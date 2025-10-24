@@ -28,6 +28,7 @@ class Image:
         self.width = self.style_dict["width"]
     
     def _determine_path(self):
+        self.link = self.link.replace("%20", " ")
         link_path = Path(self.link)
         self.name = link_path.name
         if link_path.is_absolute():
@@ -133,17 +134,26 @@ def scrape_html(html_file_path_str):
         
         answer_str = []
         for answer in answers:
-            answer_str.append(answer.text.replace("\n", ""))  
+            answer_str.append(answer.text.replace("\n", "")) 
+            
+        # Loop backwards until we find the question <p> (no attributes)
+        p = ol.find_previous_sibling("p")    
+        while p:
+            classes = p.get("class", [])
+            if "picture" in classes: # found an image
+                img_tag = p.find("img")
+                if img_tag:
+                    images.append(
+                        Image(p.span.img["src"], p["style"], p.span.img['alt'], html_file_path)
+                    )
+            elif not p.attrs and p.text != '':  # found the question
+                question_text = p.get_text(strip=True).replace("\n", "")
+                break
+
+            p = p.find_previous_sibling("p")
         
-        if(ps := ol.find_all("p")):
-            for p in ps:
-                images.append(
-                    Image(p.span.img['src'], p["style"], p.span.img['alt'], html_file_path)
-                )
-        temp_index = ol.li.text.find("\n")
-        question = ol.li.text[0:temp_index]
         question_cards.append(QuestionCard(
-            question,
+            question_text,
             '',
             answer_str[0],
             answer_str[1],
@@ -289,11 +299,11 @@ def scrape_html_3(html_file_path_str):
     return question_cards           
             
 if __name__ == "__main__":
-    output_folder = Path('./out')
-    output_file = "Spezifische_Segeln.csv"
-    html_file = Path("./html_docs/ELWIS - Basisfragen.html")
+    output_folder = "./out'"
+    output_file = "Segeln.csv"
+    html_file = "./html_docs/ELWIS - Spezifische Fragen Segeln.html"
 
-
+    output_folder = Path(output_folder)
     image_folder = output_folder / "images"
     if output_folder.exists() is False:
         output_folder.mkdir()
